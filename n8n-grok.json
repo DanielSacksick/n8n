@@ -1,0 +1,136 @@
+{
+    "name": "Slack Agent @mail (Minimal)",
+    "nodes": [
+      {
+        "parameters": {
+          "event": "message",
+          "team": "",
+          "channelIds": ["C123456"],
+          "limitToBot": false,
+          "includeBotMessages": false,
+          "resolveData": true,
+          "conditions": {
+            "string": [
+              {
+                "key": "text",
+                "value": "@mail",
+                "operation": "contains"
+              }
+            ]
+          }
+        },
+        "name": "Slack Trigger @mail",
+        "type": "n8n-nodes-base.slackTrigger",
+        "typeVersion": 2,
+        "position": [240, 300],
+        "webhookId": ""
+      },
+      {
+        "parameters": {
+          "resource": "row",
+          "operation": "getAll",
+          "table": "mail_context",
+          "additionalFields": {
+            "limit": 50,
+            "orderBy": "created_at.desc"
+          }
+        },
+        "name": "Get Context from Supabase",
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [480, 300]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "key": "text",
+                "value": "envoie un mail",
+                "operation": "contains"
+              }
+            ]
+          }
+        },
+        "name": "Filter Mail Action",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [720, 300]
+      },
+      {
+        "parameters": {
+          "values": [
+            {
+              "name": "prompt",
+              "value": "Test prompt"
+            },
+            {
+              "name": "recipient",
+              "value": "test@example.com"
+            }
+          ],
+          "options": {}
+        },
+        "name": "Prepare Prompt & Extract Data",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 1,
+        "position": [960, 200]
+      },
+      {
+        "parameters": {
+          "operation": "chatCompletion",
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "Tu es @mail, un assistant spécialisé dans l'envoi de courriels."
+            },
+            {
+              "role": "user",
+              "content": "{{$json[\"prompt\"]}}"
+            }
+          ],
+          "additionalFields": {}
+        },
+        "name": "Generate Email Template",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 2,
+        "position": [1200, 200]
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "post",
+          "channel": "C123456",
+          "text": "Test response"
+        },
+        "name": "Propose Template",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2,
+        "position": [1440, 200]
+      }
+    ],
+    "connections": {
+      "Slack Trigger @mail": {
+        "main": [[{"node": "Get Context from Supabase", "type": "main", "index": 0}]]
+      },
+      "Get Context from Supabase": {
+        "main": [[{"node": "Filter Mail Action", "type": "main", "index": 0}]]
+      },
+      "Filter Mail Action": {
+        "main": [[{"node": "Prepare Prompt & Extract Data", "type": "main", "index": 0}]],
+        "false": []
+      },
+      "Prepare Prompt & Extract Data": {
+        "main": [[{"node": "Generate Email Template", "type": "main", "index": 0}]]
+      },
+      "Generate Email Template": {
+        "main": [[{"node": "Propose Template", "type": "main", "index": 0}]]
+      }
+    },
+    "active": false,
+    "settings": {
+      "timezone": "UTC"
+    },
+    "id": "3"
+  }

@@ -1,0 +1,149 @@
+{
+    "name": "Omni Slack GPT Supabase Starter",
+    "nodes": [
+      {
+        "parameters": {
+          "event": "message",
+          "team": "",
+          "channelIds": [],
+          "limitToBot": false,
+          "includeBotMessages": false,
+          "resolveData": true
+        },
+        "name": "Slack Trigger",
+        "type": "n8n-nodes-base.slackTrigger",
+        "typeVersion": 1,
+        "position": [
+          240,
+          300
+        ],
+        "webhookId": ""
+      },
+      {
+        "parameters": {
+          "requestMethod": "GET",
+          "url": "https://YOUR_SUPABASE_URL.supabase.co/rest/v1/documents",
+          "allowUnauthorizedCerts": true,
+          "jsonParameters": true,
+          "options": {},
+          "queryParametersJson": "={\n  \"select\": \"*\",\n  \"search\": {{$json[\"event\"][\"text\"]}}  \n}",
+          "headerParametersJson": "={\n  \"apikey\": \"YOUR_SUPABASE_ANON_KEY\",\n  \"Authorization\": \"Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY\",\n  \"Content-Type\": \"application/json\"\n}"
+        },
+        "name": "Supabase Query",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 2,
+        "position": [
+          520,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "values": [
+            {
+              "name": "prompt",
+              "value": "={{\"L'utilisateur a posé la question: \" + $json[\"event\"][\"text\"] + \"\\n\\nContexte Supabase:\" + JSON.stringify($json[\"body\"], null, 2)}}"
+            }
+          ],
+          "options": {}
+        },
+        "name": "Préparation Prompt",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 1,
+        "position": [
+          760,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "chatCompletion",
+          "model": "gpt-3.5-turbo",
+          "messages": "=[\n  {\n    \"role\": \"system\",\n    \"content\": \"Tu es un assistant qui aide l'utilisateur en t'appuyant sur la base de connaissances Supabase quand c'est pertinent.\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": \"{{$json[\"prompt\"]}}\"\n  }\n]",
+          "additionalFields": {}
+        },
+        "name": "OpenAI (GPT)",
+        "type": "n8n-nodes-base.openAi",
+        "typeVersion": 1,
+        "position": [
+          1000,
+          300
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "YOUR_OPENAI_CREDENTIAL_ID"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "post",
+          "channel": "={{$json[\"event\"][\"channel\"]}}",
+          "text": "={{$json[\"choices\"][0][\"message\"][\"content\"]}}"
+        },
+        "name": "Slack Réponse",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 1,
+        "position": [
+          1240,
+          300
+        ],
+        "credentials": {
+          "slackApi": {
+            "id": "YOUR_SLACK_CREDENTIAL_ID"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Slack Trigger": {
+        "main": [
+          [
+            {
+              "node": "Supabase Query",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Supabase Query": {
+        "main": [
+          [
+            {
+              "node": "Préparation Prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Préparation Prompt": {
+        "main": [
+          [
+            {
+              "node": "OpenAI (GPT)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI (GPT)": {
+        "main": [
+          [
+            {
+              "node": "Slack Réponse",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {},
+    "id": "1"
+  }
+  
